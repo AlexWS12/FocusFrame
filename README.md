@@ -51,9 +51,9 @@ p
 --------------------------------------------------
    POMODORO SETUP
 --------------------------------------------------
-   Work duration (minutes) [25]: 25
-   Break duration (minutes) [5]: 5
-   Number of cycles [4]: 4
+   Work duration (minutes): 25
+   Break duration (minutes): 5
+   Number of cycles: 4
 
    ✓ Pomodoro configured: 25m work / 5m break x 4 cycles
    Press [Ctrl]+[Alt]+[Enter] to start Pomodoro session!
