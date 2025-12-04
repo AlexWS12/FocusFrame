@@ -25,8 +25,42 @@ python focus_frame.py
 ```
 
 **Hotkeys:**
-- `Ctrl+Alt+S` – Start monitoring
-- `Ctrl+Alt+Q` – Stop monitoring & generate report
+- `Ctrl+Alt+Enter` – Start monitoring
+- `Ctrl+Alt+Backspace` – Stop monitoring & generate report
+
+## Pomodoro Mode
+
+After launching, type `p` and press Enter to configure Pomodoro:
+
+```
+>>> FocusFrame: LOADING AI MODEL...
+
+============================================================
+   FocusFrame - READY
+============================================================
+   HOTKEYS:
+   [Ctrl] + [Alt] + [Enter]      -->  START
+   [Ctrl] + [Alt] + [Backspace]  -->  STOP
+------------------------------------------------------------
+   POMODORO MODE (optional):
+   Type 'p' + Enter to configure Pomodoro timer
+   Example: 25 min work, 5 min break, 4 cycles
+============================================================
+
+p
+--------------------------------------------------
+   POMODORO SETUP
+--------------------------------------------------
+   Work duration (minutes) [25]: 25
+   Break duration (minutes) [5]: 5
+   Number of cycles [4]: 4
+
+   ✓ Pomodoro configured: 25m work / 5m break x 4 cycles
+   Press [Ctrl]+[Alt]+[Enter] to start Pomodoro session!
+--------------------------------------------------
+```
+
+Then press `Ctrl+Alt+Enter` to start your Pomodoro session with automatic work/break cycles.
 
 ## Tuning Parameters
 
