@@ -4,6 +4,8 @@ import threading
 import datetime
 import os
 import argparse
+import tkinter as tk
+from tkinter import ttk
 import pygetwindow as gw
 from pynput import keyboard
 import webbrowser
@@ -55,7 +57,7 @@ class FocusFrameEngine:
         self.presence_threshold = presence_threshold
 
         # Presence smoothing state
-        self.person_score = 0
+        self.person_score = PRESENCE_SCORE_MAX  # Start present
         self._prev_gray = None
         self._last_person_decrement = time.time()
 
@@ -69,6 +71,9 @@ class FocusFrameEngine:
         self.pomodoro_break_min = 5
         self.pomodoro_cycles = 4
         self.pomodoro_current_cycle = 0
+        
+        # Phone popup tracking
+        self._popup_active = False
 
         # Load model
         print(f">>> {APP_NAME}: LOADING AI MODEL...")
@@ -186,14 +191,91 @@ class FocusFrameEngine:
             self.user_is_away = True
             self.log_event("Distraction", "User Away from Desk")
 
+    def _show_phone_popup(self):
+        """Show a blocking popup that requires typing 'Im back at working' to dismiss."""
+        if self._popup_active:
+            return
+        
+        self._popup_active = True
+        
+        def run_popup():
+            root = tk.Tk()
+            root.title("PHONE DETECTED - FocusFrame")
+            root.attributes('-topmost', True)
+            root.protocol("WM_DELETE_WINDOW", lambda: None)
+            
+            window_width = 450
+            window_height = 200
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            x = (screen_width // 2) - (window_width // 2)
+            y = (screen_height // 2) - (window_height // 2)
+            root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+            root.resizable(False, False)
+            root.configure(bg='#2d2d2d')
+            
+            warning_label = tk.Label(
+                root,
+                text="CELL PHONE DETECTED!",
+                font=('Arial', 16, 'bold'),
+                fg='#ff4444',
+                bg='#2d2d2d'
+            )
+            warning_label.pack(pady=(20, 10))
+            
+            instruction_label = tk.Label(
+                root,
+                text='Type "Im back at working" to continue:',
+                font=('Arial', 11),
+                fg='white',
+                bg='#2d2d2d'
+            )
+            instruction_label.pack(pady=(5, 10))
+            
+            entry_var = tk.StringVar()
+            entry = ttk.Entry(root, textvariable=entry_var, font=('Arial', 12), width=30)
+            entry.pack(pady=10)
+            entry.focus_set()
+            
+            status_label = tk.Label(
+                root,
+                text="",
+                font=('Arial', 10),
+                fg='#ff6666',
+                bg='#2d2d2d'
+            )
+            status_label.pack(pady=5)
+            
+            def check_input(*args):
+                if entry_var.get().strip().lower() == "im back at working":
+                    self._popup_active = False
+                    root.destroy()
+            
+            def on_enter(event):
+                if entry_var.get().strip().lower() == "im back at working":
+                    self._popup_active = False
+                    root.destroy()
+                else:
+                    status_label.config(text="Incorrect! Type exactly: Im back at working")
+                    entry_var.set("")
+            
+            entry_var.trace('w', check_input)
+            entry.bind('<Return>', on_enter)
+            
+            root.mainloop()
+        
+        popup_thread = threading.Thread(target=run_popup, daemon=True)
+        popup_thread.start()
+
     def _handle_phone_detection(self, phone_detected, current_time, last_log_time):
-        """Handle phone detection logging (rate-limited)."""
+        """Handle phone detection logging (rate-limited) with popup."""
         if phone_detected:
             self.last_person_seen = current_time
             self.user_is_away = False
 
             if current_time - last_log_time > 2.0:
                 self.log_event("Distraction", "Cell Phone Detected")
+                self._show_phone_popup()
                 return current_time
 
         return last_log_time
@@ -228,13 +310,13 @@ class FocusFrameEngine:
 
             current_time = time.time()
 
-            # 1. Detect motion
+            #  Detect motion
             motion_detected = self._detect_motion(frame)
 
-            # 2. Run YOLO inference
+            #  Run YOLO inference
             results = self.model(frame, verbose=False, classes=self.target_classes)
 
-            # 3. Display annotated frame
+            #  Display annotated frame
             try:
                 annotated_frame = results[0].plot()
                 cv2.imshow("FocusFrame Vision", annotated_frame)
@@ -243,19 +325,19 @@ class FocusFrameEngine:
             except Exception:
                 pass
 
-            # 4. Parse detections
+            #  Parse detections
             person_detected, phone_detected = self._analyze_detections(results)
 
-            # 5. Update presence score
+            #  Update presence score
             prev_score = self._update_presence_score(person_detected, motion_detected, current_time)
 
-            # 6. Handle presence logic (away/return)
+            #  Handle presence logic (away/return)
             self._handle_presence_logic(prev_score, current_time)
 
-            # 7. Handle phone detection
+            #  Handle phone detection
             last_log_time = self._handle_phone_detection(phone_detected, current_time, last_log_time)
 
-            # 8. Handle screen distractions
+            #  Handle screen distractions
             last_log_time = self._handle_screen_distraction(current_time, last_log_time)
 
         cap.release()
@@ -270,9 +352,10 @@ class FocusFrameEngine:
         self.is_monitoring = True
         self.start_time = datetime.datetime.now()
         self.log_data = []
-        self.person_score = 0
+        self.person_score = PRESENCE_SCORE_MAX  # Start present
         self.user_is_away = False
         self.last_person_seen = time.time()
+        self._prev_gray = None  # Reset motion detection
 
         if self.pomodoro_enabled:
             # Start Pomodoro-managed session
@@ -293,18 +376,20 @@ class FocusFrameEngine:
 
             self.pomodoro_current_cycle = cycle
             self.log_event("System", f"Pomodoro Cycle {cycle}/{self.pomodoro_cycles} - WORK ({self.pomodoro_work_min} min)")
-            print(f"\n🍅 Pomodoro: Cycle {cycle}/{self.pomodoro_cycles} - FOCUS TIME ({self.pomodoro_work_min} min)")
+            print(f"\n[Pomodoro] Cycle {cycle}/{self.pomodoro_cycles} - FOCUS TIME ({self.pomodoro_work_min} min)")
 
-            # Work period with monitoring
-            work_end = time.time() + (self.pomodoro_work_min * 60)
+            # Work period with monitoring and timer pausing
+            work_remaining = self.pomodoro_work_min * 60  # seconds
             cap = cv2.VideoCapture(0)
             if not cap.isOpened():
                 print("ERROR: Could not open camera.")
                 return
 
             last_log_time = 0
+            last_frame_time = time.time()
+            timer_paused = False
 
-            while self.is_monitoring and time.time() < work_end:
+            while self.is_monitoring and work_remaining > 0:
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -315,10 +400,12 @@ class FocusFrameEngine:
 
                 try:
                     annotated_frame = results[0].plot()
-                    remaining = int(work_end - current_time)
+                    remaining = int(max(0, work_remaining))
                     mins, secs = divmod(remaining, 60)
-                    cv2.putText(annotated_frame, f"FOCUS: {mins:02d}:{secs:02d}", (10, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    status = "PAUSED" if timer_paused else "FOCUS"
+                    color = (0, 165, 255) if timer_paused else (0, 255, 0)
+                    cv2.putText(annotated_frame, f"{status}: {mins:02d}:{secs:02d}", (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
                     cv2.imshow("FocusFrame Vision", annotated_frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         pass
@@ -331,6 +418,22 @@ class FocusFrameEngine:
                 last_log_time = self._handle_phone_detection(phone_detected, current_time, last_log_time)
                 last_log_time = self._handle_screen_distraction(current_time, last_log_time)
 
+                # Pause timer if away or phone detected (only during work, not break)
+                frame_delta = current_time - last_frame_time
+                should_pause = self.user_is_away or phone_detected or self._popup_active
+                
+                if not should_pause:
+                    work_remaining -= frame_delta
+                    if timer_paused:
+                        print("\n[Timer RESUMED]")
+                        timer_paused = False
+                else:
+                    if not timer_paused:
+                        print("\n[Timer PAUSED - away/phone detected]")
+                        timer_paused = True
+                
+                last_frame_time = current_time
+
             cap.release()
             cv2.destroyAllWindows()
 
@@ -340,7 +443,7 @@ class FocusFrameEngine:
             # Break period (except after last cycle)
             if cycle < self.pomodoro_cycles:
                 self.log_event("System", f"Pomodoro Cycle {cycle} - BREAK ({self.pomodoro_break_min} min)")
-                print(f"\n☕ Pomodoro: BREAK TIME ({self.pomodoro_break_min} min) - Relax!")
+                print(f"\n[Pomodoro] BREAK TIME ({self.pomodoro_break_min} min) - Relax!")
 
                 break_end = time.time() + (self.pomodoro_break_min * 60)
                 while self.is_monitoring and time.time() < break_end:
@@ -352,7 +455,7 @@ class FocusFrameEngine:
 
         if self.is_monitoring:
             self.log_event("System", "Pomodoro session completed!")
-            print("\n🎉 Pomodoro session completed! Great work!")
+            print("\n[Pomodoro] Session completed! Great work!")
             self.is_monitoring = False
             self.end_time = datetime.datetime.now()
             self.generate_report()
