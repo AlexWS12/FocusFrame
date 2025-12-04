@@ -70,8 +70,8 @@ class FocusFrameEngine:
 
         print("\n" + "="*50)
         print(f"   {APP_NAME} - READY")
-        print("   [Ctrl] + [Alt] + [S]  -->  START")
-        print("   [Ctrl] + [Alt] + [Q]  -->  STOP")
+        print("   [Ctrl] + [Alt] + [Enter]      -->  START")
+        print("   [Ctrl] + [Alt] + [Backspace]  -->  STOP")
         print("="*50 + "\n")
 
     def get_active_window_title(self):
@@ -353,8 +353,8 @@ Examples:
 
     # Start hotkey listener
     with keyboard.GlobalHotKeys({
-        '<ctrl>+<alt>+s': app.start_session,
-        '<ctrl>+<alt>+q': app.stop_session
+        '<ctrl>+<alt>+<enter>': app.start_session,
+        '<ctrl>+<alt>+<backspace>': app.stop_session
     }) as h:
         h.join()
 
