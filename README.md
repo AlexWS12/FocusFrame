@@ -78,7 +78,7 @@ python focus_frame.py --motion-threshold 1200 --absence-time 3 --presence-thresh
 
 1. **Presence Smoothing:** Uses a score system (0-5) that increments on detection/motion and decrements slowly.
 2. **Away Detection:** Logs "User Away from Desk" when score reaches 0 and timeout elapses.
-3. **Return Detection:** Logs "User returned" when score crosses the presence threshold.
+3. **Return Detection:** Logs "User returned" when score crosses the presence threshold. (needs fixing!)
 4. **Event Logging:** All events (phone, apps, away/return) logged to HTML report.
 
 ## Requirements
