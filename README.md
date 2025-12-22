@@ -47,7 +47,6 @@ After launching, type `p` and press Enter to configure Pomodoro:
    Example: 25 min work, 5 min break, 4 cycles
 ============================================================
 
-p
 --------------------------------------------------
    POMODORO SETUP
 --------------------------------------------------
